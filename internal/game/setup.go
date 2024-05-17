@@ -5,4 +5,5 @@ const (
 	sideLen            int32 = 30
 	licenseAreaSideLen int32 = 6
 	startMoney         int32 = 1000
+	timeLimitMin       int   = 10
 )

@@ -4,10 +4,12 @@ import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -19,7 +21,8 @@ type SessionsManager struct {
 
 func NewSessionsManager(db *database.DbConnector) *SessionsManager {
 	return &SessionsManager{
-		db: db,
+		db:              db,
+		pendingSessions: []int32{},
 	}
 }
 
@@ -59,7 +62,14 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 }
 
 func createSession() *pb.Session {
-	return nil
+	session := &pb.Session{
+		Id:        rand.Int31(),
+		Users:     []*pb.User{},
+		Map:       generateMap(),
+		TimeLimit: durationpb.New(time.Duration(timeLimitMin) * time.Minute),
+		Status:    pb.SessionStatus_WAITING,
+	}
+	return session
 }
 
 // Start positions;
@@ -146,10 +156,6 @@ func (sm *SessionsManager) getPendingSession() (*pb.Session, error) {
 }
 
 func (sm *SessionsManager) AddTransport(session *pb.Session, userId int32, from *pb.Coordintates, to *pb.Coordintates, transport pb.Transport) error {
-	// blockFrom := session.Map[from.Y+from.X]
-	// blockTo := session.Map[to.Y+to.X]
-	// blockFrom.Connectors
-
 	return nil
 }
 
