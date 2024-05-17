@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+option go_package = "game_server/api/v1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message Coordintates {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message User {
+    int32 id = 1;
+    string name = 2;
+    int32 money = 3;
+    repeated Coordintates license = 4;
+}
+
+enum BlockType {
+    RESIDENTIAL = 0;
+    ENTERTAINMENT = 1;
+    INDUSTRIAL = 2;
+    TECHNICAL = 3;
+}
+
+enum Transport {
+    BUS = 0;
+    METRO = 1;
+    TAXI = 2;
+    TRAM = 3;
+}
+
+message Connector {
+    int32 userId = 1;
+    Transport transport = 2;
+}
+
+message Block {
+    Coordintates position = 1;
+    BlockType type = 2;
+    int32 capacity = 4; // max number of connectors
+    repeated Connector connectors = 5; // connectors in use
+}
+
+enum SessionStatus {
+    WAITING = 0;
+    ACTIVE = 1;
+    FINISHED = 2;
+}
+
+message Session {
+    int32 id = 1;
+    repeated User users = 2;
+    repeated Block map = 3;
+    google.protobuf.Duration timeLimit = 4;
+    SessionStatus status = 5;
+    google.protobuf.Timestamp startTime = 6;
+    int32 mapXlen = 7;
+}
+
+message UserId {
+    int32 id = 1;
+}
+
+message SessionId {
+    int32 id = 1;
+}
+
+message Event {
+    string type = 1;
+    repeated Coordintates area = 2;
+}
+
+message State {
+    repeated User users = 1;
+    repeated Block changedBlocks = 2;
+    // Вероятно здесь должно быть еще что-то о пассажирах, но я хз что
+}
+
+message NewTransportReq {
+    int32 userId = 1;
+    Coordintates from = 2;
+    Coordintates to = 3;
+    Transport transport = 4;
+}
+
+message ExtendLicenseReq {
+    int32 userId = 1;
+    repeated Coordintates blocks = 2; // new blocks in license
+}
+
+service Api {
+    rpc GetSession(UserId) returns (Session);
+    // rpc GetSessionTime(SessionId) returns (google.protobuf.Duration); // could be negative before the start of the session
+
+    rpc NewTransport(NewTransportReq) returns (google.protobuf.Empty);
+    rpc ExtendLicense(ExtendLicenseReq) returns (google.protobuf.Empty);
+
+    rpc EventStream(UserId) returns (stream Event);
+    rpc StateStream(SessionId) returns (stream State);
+}
