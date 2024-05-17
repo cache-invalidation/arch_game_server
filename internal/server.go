@@ -39,17 +39,8 @@ func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error
 	return session, nil
 }
 
-//	func (s *Server) GetSessionTime(context.Context, *pb.SessionId) (*durationpb.Duration, error) {
-//		return nil, status.Errorf(codes.Unimplemented, "method GetSessionTime not implemented")
-//	}
-
 func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptypb.Empty, error) {
-	session, err := s.db.GetAliveSessionByUser(r.UserId)
-	if err != nil {
-		return nil, InternalError(err)
-	}
-
-	err = s.sessionsManager.AddTransport(session, r.UserId, r.From, r.To, r.Transport)
+	err := s.sessionsManager.AddTransport(r.UserId, r.From, r.To, r.Transport)
 	if err != nil {
 		return nil, InternalError(err)
 	}
@@ -58,12 +49,7 @@ func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptyp
 }
 
 func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*emptypb.Empty, error) {
-	session, err := s.db.GetAliveSessionByUser(r.UserId)
-	if err != nil {
-		return nil, InternalError(err)
-	}
-
-	err = s.sessionsManager.ExtendLicense(session, r.UserId, r.Blocks)
+	err := s.sessionsManager.ExtendLicense(r.UserId, r.Blocks)
 	if err != nil {
 		return nil, InternalError(err)
 	}
