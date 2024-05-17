@@ -17,6 +17,7 @@ type SessionsManager struct {
 	db                   *database.DbConnector
 	pendingSessions      []int32
 	pendingSessionsMutex sync.Mutex
+	transportMutex       sync.Mutex
 }
 
 func NewSessionsManager(db *database.DbConnector) *SessionsManager {
@@ -155,10 +156,36 @@ func (sm *SessionsManager) getPendingSession() (*pb.Session, error) {
 	return session, nil
 }
 
-func (sm *SessionsManager) AddTransport(session *pb.Session, userId int32, from *pb.Coordintates, to *pb.Coordintates, transport pb.Transport) error {
-	return nil
+func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to *pb.Coordintates, transport pb.Transport) error {
+	sm.transportMutex.Lock()
+	defer sm.transportMutex.Unlock()
+
+	session, err := sm.db.GetAliveSessionByUser(userId)
+	if err != nil {
+		return err
+	}
+
+	fromBlock := session.Map[from.Y*sideLen+from.X]
+	toBlock := session.Map[to.Y*sideLen+to.X]
+
+	fromBlock.Connectors = append(fromBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: to})
+	toBlock.Connectors = append(toBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: from})
+
+	return sm.db.UpdateSession(session)
 }
 
-func (sm *SessionsManager) ExtendLicense(session *pb.Session, userId int32, blocks []*pb.Coordintates) error {
-	return nil
+func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates) error {
+	session, err := sm.db.GetAliveSessionByUser(userId)
+	if err != nil {
+		return err
+	}
+
+	for _, user := range session.Users {
+		if user.Id == userId {
+			user.License = append(user.License, blocks...)
+			break
+		}
+	}
+
+	return sm.db.UpdateSession(session)
 }
