@@ -40,6 +40,6 @@ func (db *DbConnector) GetSession(id int32) (*pb.Session, error) {
 	return nil, nil
 }
 
-func (db *DbConnector) GetSessionByUser(userId int32) (*pb.Session, error) {
+func (db *DbConnector) GetAliveSessionByUser(userId int32) (*pb.Session, error) {
 	return nil, nil
 }

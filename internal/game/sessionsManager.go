@@ -3,6 +3,8 @@ package game
 import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
+	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -11,21 +13,17 @@ import (
 
 type SessionsManager struct {
 	db                   *database.DbConnector
-	maxPlayers           int
 	pendingSessions      []int32
 	pendingSessionsMutex sync.Mutex
 }
 
 func NewSessionsManager(db *database.DbConnector) *SessionsManager {
 	return &SessionsManager{
-		db:         db,
-		maxPlayers: 4,
+		db: db,
 	}
 }
 
 func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error) {
-	user := createUser(userId)
-
 	pendingSession, err := sm.getPendingSession()
 	if err != nil {
 		return nil, err
@@ -33,7 +31,7 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 
 	if pendingSession == nil {
 		session := createSession()
-
+		user := createUser(userId, 0)
 		session.Users = append(session.Users, user)
 
 		if err := sm.db.AddSession(session); err != nil {
@@ -45,9 +43,10 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 		return session, nil
 	}
 
+	user := createUser(userId, len(pendingSession.Users))
 	pendingSession.Users = append(pendingSession.Users, user)
 
-	if len(pendingSession.Users) == sm.maxPlayers {
+	if len(pendingSession.Users) == maxPlayers {
 		pendingSession.Status = pb.SessionStatus_ACTIVE
 		pendingSession.StartTime = timestamppb.New(time.Now().Add(time.Minute))
 	}
@@ -63,8 +62,58 @@ func createSession() *pb.Session {
 	return nil
 }
 
-func createUser(int32) *pb.User {
-	return nil
+// Start positions;
+// ┌--------┐
+// |   0    |
+// |3      1|
+// |   2    |
+// └--------┘
+func createUser(userId int32, startPos int) *pb.User {
+	license := []*pb.Coordintates{}
+	start := sideLen/2 - licenseAreaSideLen/2
+	end := sideLen/2 + licenseAreaSideLen/2
+
+	var xStart int32 = 0
+	var xEnd int32 = 0
+	var yStart int32 = 0
+	var yEnd int32 = 0
+
+	switch startPos {
+	case 0:
+		xStart = start
+		xEnd = end
+		yEnd = licenseAreaSideLen
+	case 1:
+		xStart = sideLen - licenseAreaSideLen
+		xEnd = sideLen
+		yStart = start
+		yEnd = end
+	case 2:
+		xStart = start
+		xEnd = end
+		yStart = sideLen - licenseAreaSideLen
+		yEnd = sideLen
+	case 3:
+		xEnd = licenseAreaSideLen
+		yStart = start
+		yEnd = end
+	default:
+		log.Panicf("unexpected starting pos %d during user creation", startPos)
+	}
+
+	for y := yStart; y < yEnd; y++ {
+		for x := xStart; x < xEnd; x++ {
+			license = append(license, &pb.Coordintates{X: x, Y: y})
+		}
+	}
+
+	user := pb.User{
+		Id:      userId,
+		Name:    strconv.Itoa(int(userId)),
+		Money:   startMoney,
+		License: license,
+	}
+	return &user
 }
 
 func (sm *SessionsManager) addPendingSession(sessionId int32) {
@@ -89,7 +138,7 @@ func (sm *SessionsManager) getPendingSession() (*pb.Session, error) {
 		return nil, err
 	}
 
-	if len(session.Users) >= sm.maxPlayers-1 {
+	if len(session.Users) >= maxPlayers-1 {
 		sm.pendingSessions = sm.pendingSessions[1:]
 	}
 

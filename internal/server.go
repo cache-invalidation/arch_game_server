@@ -27,7 +27,7 @@ func NewServer(db *database.DbConnector) *Server {
 }
 
 func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error) {
-	session, err := s.db.GetSessionByUser(r.Id)
+	session, err := s.db.GetAliveSessionByUser(r.Id)
 	if err != nil {
 		// добавить проверку not found
 		session, err = s.sessionsManager.FindSessionForUser(r.Id)
@@ -44,7 +44,7 @@ func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error
 //	}
 
 func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptypb.Empty, error) {
-	session, err := s.db.GetSessionByUser(r.UserId)
+	session, err := s.db.GetAliveSessionByUser(r.UserId)
 	if err != nil {
 		return nil, InternalError(err)
 	}
@@ -58,7 +58,7 @@ func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptyp
 }
 
 func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*emptypb.Empty, error) {
-	session, err := s.db.GetSessionByUser(r.UserId)
+	session, err := s.db.GetAliveSessionByUser(r.UserId)
 	if err != nil {
 		return nil, InternalError(err)
 	}
