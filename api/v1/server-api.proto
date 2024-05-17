@@ -57,7 +57,6 @@ message Session {
     google.protobuf.Duration timeLimit = 4;
     SessionStatus status = 5;
     google.protobuf.Timestamp startTime = 6;
-    int32 mapXlen = 7;
 }
 
 message UserId {

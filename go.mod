@@ -4,7 +4,6 @@ go 1.22.0
 
 require (
 	github.com/caarlos0/env/v6 v6.10.1
-	github.com/google/uuid v1.6.0
 	github.com/tarantool/go-tarantool v1.12.2
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.1
