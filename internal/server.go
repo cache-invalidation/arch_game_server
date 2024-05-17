@@ -70,6 +70,6 @@ func (s *Server) StateStream(r *pb.StateStreamReq, srv pb.Api_StateStreamServer)
 }
 
 func InternalError(err error) error {
-	log.Printf("internal error: %v", err)
+	log.Printf("internal error: %v\n", err)
 	return status.Errorf(codes.Internal, "internal error: %v", err)
 }
