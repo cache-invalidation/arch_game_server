@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
@@ -178,6 +179,10 @@ func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to 
 
 	fromBlock := session.Map[from.Y*sideLen+from.X]
 	toBlock := session.Map[to.Y*sideLen+to.X]
+
+	if len(fromBlock.Connectors) == int(fromBlock.Capacity) || len(toBlock.Connectors) == int(toBlock.Capacity) {
+		return fmt.Errorf("connector capacity exceeded")
+	}
 
 	fromBlock.Connectors = append(fromBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: to})
 	toBlock.Connectors = append(toBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: from})
