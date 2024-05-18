@@ -23,7 +23,6 @@ const (
 	Api_GetSession_FullMethodName    = "/Api/GetSession"
 	Api_NewTransport_FullMethodName  = "/Api/NewTransport"
 	Api_ExtendLicense_FullMethodName = "/Api/ExtendLicense"
-	Api_EventStream_FullMethodName   = "/Api/EventStream"
 	Api_StateStream_FullMethodName   = "/Api/StateStream"
 )
 
@@ -34,8 +33,8 @@ type ApiClient interface {
 	GetSession(ctx context.Context, in *UserId, opts ...grpc.CallOption) (*Session, error)
 	NewTransport(ctx context.Context, in *NewTransportReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ExtendLicense(ctx context.Context, in *ExtendLicenseReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	EventStream(ctx context.Context, in *UserId, opts ...grpc.CallOption) (Api_EventStreamClient, error)
-	StateStream(ctx context.Context, in *SessionId, opts ...grpc.CallOption) (Api_StateStreamClient, error)
+	// rpc EventStream(UserId) returns (stream Event);
+	StateStream(ctx context.Context, in *StateStreamReq, opts ...grpc.CallOption) (Api_StateStreamClient, error)
 }
 
 type apiClient struct {
@@ -73,40 +72,8 @@ func (c *apiClient) ExtendLicense(ctx context.Context, in *ExtendLicenseReq, opt
 	return out, nil
 }
 
-func (c *apiClient) EventStream(ctx context.Context, in *UserId, opts ...grpc.CallOption) (Api_EventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Api_ServiceDesc.Streams[0], Api_EventStream_FullMethodName, opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &apiEventStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Api_EventStreamClient interface {
-	Recv() (*Event, error)
-	grpc.ClientStream
-}
-
-type apiEventStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *apiEventStreamClient) Recv() (*Event, error) {
-	m := new(Event)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *apiClient) StateStream(ctx context.Context, in *SessionId, opts ...grpc.CallOption) (Api_StateStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Api_ServiceDesc.Streams[1], Api_StateStream_FullMethodName, opts...)
+func (c *apiClient) StateStream(ctx context.Context, in *StateStreamReq, opts ...grpc.CallOption) (Api_StateStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Api_ServiceDesc.Streams[0], Api_StateStream_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +111,8 @@ type ApiServer interface {
 	GetSession(context.Context, *UserId) (*Session, error)
 	NewTransport(context.Context, *NewTransportReq) (*emptypb.Empty, error)
 	ExtendLicense(context.Context, *ExtendLicenseReq) (*emptypb.Empty, error)
-	EventStream(*UserId, Api_EventStreamServer) error
-	StateStream(*SessionId, Api_StateStreamServer) error
+	// rpc EventStream(UserId) returns (stream Event);
+	StateStream(*StateStreamReq, Api_StateStreamServer) error
 	mustEmbedUnimplementedApiServer()
 }
 
@@ -162,10 +129,7 @@ func (UnimplementedApiServer) NewTransport(context.Context, *NewTransportReq) (*
 func (UnimplementedApiServer) ExtendLicense(context.Context, *ExtendLicenseReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExtendLicense not implemented")
 }
-func (UnimplementedApiServer) EventStream(*UserId, Api_EventStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
-}
-func (UnimplementedApiServer) StateStream(*SessionId, Api_StateStreamServer) error {
+func (UnimplementedApiServer) StateStream(*StateStreamReq, Api_StateStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method StateStream not implemented")
 }
 func (UnimplementedApiServer) mustEmbedUnimplementedApiServer() {}
@@ -235,29 +199,8 @@ func _Api_ExtendLicense_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_EventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(UserId)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ApiServer).EventStream(m, &apiEventStreamServer{stream})
-}
-
-type Api_EventStreamServer interface {
-	Send(*Event) error
-	grpc.ServerStream
-}
-
-type apiEventStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *apiEventStreamServer) Send(m *Event) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _Api_StateStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SessionId)
+	m := new(StateStreamReq)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
@@ -298,11 +241,6 @@ var Api_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "EventStream",
-			Handler:       _Api_EventStream_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "StateStream",
 			Handler:       _Api_StateStream_Handler,

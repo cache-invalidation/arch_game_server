@@ -56,15 +56,20 @@ func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*empt
 
 	return &emptypb.Empty{}, nil
 }
-func (s *Server) EventStream(r *pb.UserId, srv pb.Api_EventStreamServer) error {
-	log.Printf("start event stream for user: %d\n", r.Id)
 
-	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
-}
-func (s *Server) StateStream(r *pb.SessionId, srv pb.Api_StateStreamServer) error {
+// func (s *Server) EventStream(r *pb.UserId, srv pb.Api_EventStreamServer) error {
+// 	log.Printf("start event stream for user: %d\n", r.Id)
+
+// 	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
+// }
+
+func (s *Server) StateStream(r *pb.StateStreamReq, srv pb.Api_StateStreamServer) error {
+	log.Printf("start session %d state stream for user: %d\n", r.SessionId.Id, r.UserId.Id)
+
 	return status.Errorf(codes.Unimplemented, "method StateStream not implemented")
 }
 
 func InternalError(err error) error {
+	log.Printf("internal error: %v", err)
 	return status.Errorf(codes.Internal, "internal error: %v", err)
 }
