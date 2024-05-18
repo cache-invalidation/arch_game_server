@@ -67,7 +67,9 @@ func (sm *SessionsManager) startSesison(session *pb.Session) {
 	session.Status = pb.SessionStatus_ACTIVE
 	session.StartTime = timestamppb.New(time.Now().Add(time.Minute))
 
-	gameRunner := NewGameRunner()
+	gameRunner := NewGameRunner(session.Id, sm.db)
+	gameRunner.startGameComputation()
+
 	sm.gameRuners[session.Id] = gameRunner
 }
 
@@ -200,6 +202,8 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 }
 
 func (sm *SessionsManager) StreamState(sessionId, userId int32, srv pb.Api_StateStreamServer) error {
+	ctx := sm.gameRuners[sessionId].addConnection(srv)
+	<-ctx.Done()
 
 	return nil
 }
