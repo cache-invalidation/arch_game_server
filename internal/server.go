@@ -66,7 +66,7 @@ func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*empt
 func (s *Server) StateStream(r *pb.StateStreamReq, srv pb.Api_StateStreamServer) error {
 	log.Printf("start session %d state stream for user: %d\n", r.SessionId.Id, r.UserId.Id)
 
-	return status.Errorf(codes.Unimplemented, "method StateStream not implemented")
+	return s.sessionsManager.StreamState(r.SessionId.Id, r.UserId.Id, srv)
 }
 
 func InternalError(err error) error {
