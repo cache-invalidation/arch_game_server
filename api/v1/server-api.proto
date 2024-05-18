@@ -76,6 +76,7 @@ message Event {
 message State {
     repeated User users = 1;
     repeated Block changedBlocks = 2;
+    repeated Event newEvents = 3;
     // Вероятно здесь должно быть еще что-то о пассажирах, но я хз что
 }
 
@@ -91,6 +92,11 @@ message ExtendLicenseReq {
     repeated Coordintates blocks = 2; // new blocks in license
 }
 
+message StateStreamReq {
+    SessionId sessionId = 1;
+    UserId userId = 2;
+}
+
 service Api {
     rpc GetSession(UserId) returns (Session);
     // rpc GetSessionTime(SessionId) returns (google.protobuf.Duration); // could be negative before the start of the session
@@ -98,6 +104,6 @@ service Api {
     rpc NewTransport(NewTransportReq) returns (google.protobuf.Empty);
     rpc ExtendLicense(ExtendLicenseReq) returns (google.protobuf.Empty);
 
-    rpc EventStream(UserId) returns (stream Event);
-    rpc StateStream(SessionId) returns (stream State);
+    // rpc EventStream(UserId) returns (stream Event);
+    rpc StateStream(StateStreamReq) returns (stream State);
 }
