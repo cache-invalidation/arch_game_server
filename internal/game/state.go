@@ -5,6 +5,7 @@ import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
+	"time"
 )
 
 type GameRunner struct {
@@ -33,16 +34,28 @@ func (gr *GameRunner) addConnection(srv pb.Api_StateStreamServer) context.Contex
 
 func (gr *GameRunner) startGameComputation() {
 	go func() {
+		var session *pb.Session
+		var err error
 		for {
-			session, err := gr.db.GetSession(gr.sessionId)
+			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
 				gr.ctxCancel()
 			}
 
+			if session.StartTime.AsTime().Add(time.Duration(timeLimitMin) * time.Minute).After(time.Now()) {
+				break
+			}
+
 			state, err := computeState(session)
 			if err != nil {
 				log.Printf("game loop for session %d, compute state error: %v", gr.sessionId, err)
+				session.Status = pb.SessionStatus_FINISHED
+				gr.ctxCancel()
+			}
+
+			if err := gr.db.UpdateSession(session); err != nil {
+				log.Printf("game loop for session %d, update session in db error: %v", gr.sessionId, err)
 				gr.ctxCancel()
 			}
 
@@ -53,6 +66,13 @@ func (gr *GameRunner) startGameComputation() {
 				}
 			}
 		}
+
+		session.Status = pb.SessionStatus_FINISHED
+		if err := gr.db.UpdateSession(session); err != nil {
+			log.Printf("game end for session %d, update session in db error: %v", gr.sessionId, err)
+		}
+
+		gr.ctxCancel()
 	}()
 }
 
