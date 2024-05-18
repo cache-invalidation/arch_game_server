@@ -16,6 +16,7 @@ import (
 type SessionsManager struct {
 	db                   *database.DbConnector
 	pendingSessions      []int32
+	gameRuners           map[int32]*GameRunner
 	pendingSessionsMutex sync.Mutex
 	transportMutex       sync.Mutex
 }
@@ -24,6 +25,7 @@ func NewSessionsManager(db *database.DbConnector) *SessionsManager {
 	return &SessionsManager{
 		db:              db,
 		pendingSessions: []int32{},
+		gameRuners:      map[int32]*GameRunner{},
 	}
 }
 
@@ -51,8 +53,7 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 	pendingSession.Users = append(pendingSession.Users, user)
 
 	if len(pendingSession.Users) == maxPlayers {
-		pendingSession.Status = pb.SessionStatus_ACTIVE
-		pendingSession.StartTime = timestamppb.New(time.Now().Add(time.Minute))
+		sm.startSesison(pendingSession)
 	}
 
 	if err := sm.db.UpdateSession(pendingSession); err != nil {
@@ -60,6 +61,14 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 	}
 
 	return pendingSession, nil
+}
+
+func (sm *SessionsManager) startSesison(session *pb.Session) {
+	session.Status = pb.SessionStatus_ACTIVE
+	session.StartTime = timestamppb.New(time.Now().Add(time.Minute))
+
+	gameRunner := NewGameRunner()
+	sm.gameRuners[session.Id] = gameRunner
 }
 
 func createSession() *pb.Session {
@@ -188,4 +197,9 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 	}
 
 	return sm.db.UpdateSession(session)
+}
+
+func (sm *SessionsManager) StreamState(sessionId, userId int32, srv pb.Api_StateStreamServer) error {
+
+	return nil
 }
