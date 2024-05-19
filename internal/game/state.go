@@ -1,6 +1,7 @@
 package game
 
 import (
+	"container/heap"
 	"context"
 	pb "game_server/api/v1"
 	"game_server/internal/database"
@@ -17,17 +18,21 @@ type GameRunner struct {
 	connections  []pb.Api_StateStreamServer
 	network      TransportNetwork
 	networkMutex sync.Mutex
+	rewardQueue  *RewardQueue
 }
 
 func NewGameRunner(sessionId int32, db *database.DbConnector) *GameRunner {
-
 	ctx, cxtCancel := context.WithCancel(context.Background())
+	rewatdQueue := &RewardQueue{}
+	heap.Init(rewatdQueue)
+
 	return &GameRunner{
 		ctx:         ctx,
 		db:          db,
 		ctxCancel:   cxtCancel,
 		connections: []pb.Api_StateStreamServer{},
 		network:     TransportNetwork{},
+		rewardQueue: rewatdQueue,
 	}
 }
 
