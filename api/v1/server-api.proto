@@ -73,11 +73,21 @@ message Event {
     repeated Coordintates area = 2;
 }
 
+message Path {
+    repeated Coordintates points = 1;
+}
+
+message OutNetworkPassenger {
+    Coordintates position = 1;
+    google.protobuf.Duration ttl = 2;
+}
+
 message State {
     repeated User users = 1;
     repeated Block changedBlocks = 2;
     repeated Event newEvents = 3;
-    // Вероятно здесь должно быть еще что-то о пассажирах, но я хз что
+    repeated Path tracks = 4;
+    repeated OutNetworkPassenger outNetworPassengers = 5;
 }
 
 message NewTransportReq {
