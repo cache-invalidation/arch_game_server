@@ -6,6 +6,7 @@ import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -44,11 +45,30 @@ func (gr *GameRunner) addConnection(srv pb.Api_StateStreamServer) context.Contex
 	return gr.ctx
 }
 
+// kF computes value for k (+ jitter) based on game progression
+func kF(alpha float64) int {
+	// Idea: approx every 20 ticks in the beginning, every 5 ticks at the end
+	return 16 - int(alpha*15) + rand.Intn(4)
+}
+
+// nF computes value for n (+ jitter) based on game progression
+func nF(alpha float64) int {
+	// Idea: at most 1 at the beginning, at most 25 at the end
+	// Linearly adjust n
+	return 1 + rand.Intn(int(alpha*25))
+}
+
 func (gr *GameRunner) startGameComputation() {
 	go func() {
+		// k is a counter managing generation of travellers. Each time it
+		// reaches zero, a handful of travellers is produced
+		k := 1
+
 		var session *pb.Session
 		var err error
 		for {
+			k--
+			time.Sleep(200)
 			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
@@ -59,7 +79,17 @@ func (gr *GameRunner) startGameComputation() {
 				break
 			}
 
-			state, err := gr.computeState(session)
+			to_spawn := 0
+			if k == 0 {
+				alpha := time.Now().Sub(session.StartTime.AsTime()).Minutes() / float64(timeLimitMin)
+
+				// set the counter to new value
+				k = kF(alpha)
+				// select the number of travellers spawned
+				to_spawn = nF(alpha)
+			}
+
+			state, err := gr.computeState(session, to_spawn)
 			if err != nil {
 				log.Printf("game loop for session %d, compute state error: %v", gr.sessionId, err)
 				session.Status = pb.SessionStatus_FINISHED
@@ -106,7 +136,33 @@ func (gr *GameRunner) extendNetwork(userId int32, p1 *pb.Coordintates, p2 *pb.Co
 	return gr.network.ConnectBlocks(userId, coords1, coords2, transport)
 }
 
-func (gr *GameRunner) computeState(session *pb.Session) (*pb.State, error) {
+func (gr *GameRunner) generateTravellers(n int) []Path {
+	gr.networkMutex.Lock()
+	defer gr.networkMutex.Unlock()
+
+	// Let's filter out the starting edges that have
+	starts := []Coords{}
+
+	paths := []Path{}
+
+	for s := range gr.network.blocks {
+		starts = append(starts, s)
+	}
+
+	if len(starts) > 0 {
+		for i := 0; i < n; i++ {
+			start := starts[rand.Intn(len(starts))]
+			path := gr.network.RandomPath(start, 20)
+			if len(path.Hops) > 0 {
+				paths = append(paths, path)
+			}
+		}
+	}
+
+	return paths
+}
+
+func (gr *GameRunner) computeState(session *pb.Session, to_spawn int) (*pb.State, error) {
 	gr.rewardsAccrual(session)
 
 	changedBlocks := []*pb.Block{}
@@ -116,10 +172,47 @@ func (gr *GameRunner) computeState(session *pb.Session) (*pb.State, error) {
 		}
 	}
 
+	now := time.Now()
+	paths := gr.generateTravellers(to_spawn)
+
+	// No we shall reward generously the completers of the path
+	for _, path := range paths {
+		rewards := path.Reward()
+
+		for user, money := range rewards {
+			heap.Push(gr.rewardQueue, &Reward{
+				userId:         user,
+				money:          int32(money),
+				activationTime: now,
+			})
+		}
+	}
+
+	// And we shall send the generated paths to the client
+	tracks := []*pb.Path{}
+	for _, path := range paths {
+		coords := []*pb.Coordintates{{
+			X: path.Start.X,
+			Y: path.Start.Y,
+		}}
+
+		for _, hop := range path.Hops {
+			coords = append(coords, &pb.Coordintates{
+				X: hop.To.X,
+				Y: hop.To.Y,
+			})
+		}
+
+		tracks = append(tracks, &pb.Path{
+			Points: coords,
+		})
+	}
+
 	state := &pb.State{
 		Users:                session.Users,
 		NewEvents:            []*pb.Event{},
 		ChangedBlocks:        changedBlocks,
+		Tracks:               tracks,
 		OutNetworkPassengers: []*pb.OutNetworkPassenger{},
 	}
 
