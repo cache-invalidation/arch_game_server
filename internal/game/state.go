@@ -6,33 +6,36 @@ import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 )
 
 type GameRunner struct {
-	sessionId    int32
-	db           *database.DbConnector
-	ctx          context.Context
-	ctxCancel    context.CancelFunc
-	connections  []pb.Api_StateStreamServer
-	network      TransportNetwork
-	networkMutex sync.Mutex
-	rewardQueue  *RewardQueue
+	sessionId        int32
+	db               *database.DbConnector
+	ctx              context.Context
+	ctxCancel        context.CancelFunc
+	connections      []pb.Api_StateStreamServer
+	network          TransportNetwork
+	networkMutex     sync.Mutex
+	rewardQueue      *RewardQueue
+	lastSessionState *pb.Session
 }
 
-func NewGameRunner(sessionId int32, db *database.DbConnector) *GameRunner {
+func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *pb.Session) *GameRunner {
 	ctx, cxtCancel := context.WithCancel(context.Background())
 	rewatdQueue := &RewardQueue{}
 	heap.Init(rewatdQueue)
 
 	return &GameRunner{
-		ctx:         ctx,
-		db:          db,
-		ctxCancel:   cxtCancel,
-		connections: []pb.Api_StateStreamServer{},
-		network:     TransportNetwork{},
-		rewardQueue: rewatdQueue,
+		ctx:              ctx,
+		db:               db,
+		ctxCancel:        cxtCancel,
+		connections:      []pb.Api_StateStreamServer{},
+		network:          TransportNetwork{},
+		rewardQueue:      rewatdQueue,
+		lastSessionState: initSessionState,
 	}
 }
 
@@ -46,7 +49,6 @@ func (gr *GameRunner) startGameComputation() {
 		var session *pb.Session
 		var err error
 		for {
-			time.Sleep(200)
 			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
@@ -57,7 +59,7 @@ func (gr *GameRunner) startGameComputation() {
 				break
 			}
 
-			state, err := computeState(session)
+			state, err := gr.computeState(session)
 			if err != nil {
 				log.Printf("game loop for session %d, compute state error: %v", gr.sessionId, err)
 				session.Status = pb.SessionStatus_FINISHED
@@ -75,6 +77,8 @@ func (gr *GameRunner) startGameComputation() {
 					// gr.ctxCancel()
 				}
 			}
+
+			time.Sleep(200)
 		}
 
 		session.Status = pb.SessionStatus_FINISHED
@@ -102,12 +106,22 @@ func (gr *GameRunner) extendNetwork(userId int32, p1 *pb.Coordintates, p2 *pb.Co
 	return gr.network.ConnectBlocks(userId, coords1, coords2, transport)
 }
 
-func computeState(session *pb.Session) (*pb.State, error) {
-	state := &pb.State{
-		Users:         session.Users,
-		NewEvents:     []*pb.Event{},
-		ChangedBlocks: []*pb.Block{},
+func (gr *GameRunner) computeState(session *pb.Session) (*pb.State, error) {
+	changedBlocks := []*pb.Block{}
+	for i := range session.Map {
+		if !reflect.DeepEqual(session.Map[i], gr.lastSessionState.Map[i]) {
+			changedBlocks = append(changedBlocks, session.Map[i])
+		}
 	}
+
+	state := &pb.State{
+		Users:                session.Users,
+		NewEvents:            []*pb.Event{},
+		ChangedBlocks:        changedBlocks,
+		OutNetworkPassengers: []*pb.OutNetworkPassenger{},
+	}
+
+	gr.lastSessionState = session
 
 	return state, nil
 }
