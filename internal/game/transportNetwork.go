@@ -3,6 +3,9 @@ package game
 import (
 	"fmt"
 	pb "game_server/api/v1"
+	"math"
+	"math/rand"
+	"time"
 )
 
 type Coords struct {
@@ -56,4 +59,139 @@ func (tn *TransportNetwork) isPathExists(from Coords, to Coords) bool {
 	}
 
 	return false
+}
+
+type Path struct {
+	Start Coords
+	Hops  []*Destination
+}
+
+func transportReward(t pb.Transport) int {
+	switch t {
+	case pb.Transport_BUS:
+		return Reward_BUS
+	case pb.Transport_METRO:
+		return Reward_METRO
+	case pb.Transport_TAXI:
+		return Reward_TAXI
+	case pb.Transport_TRAM:
+		return Reward_TRAM
+	default:
+		return 0
+	}
+}
+
+func transportDuration(t pb.Transport) time.Duration {
+	switch t {
+	case pb.Transport_BUS:
+		return Duration_BUS
+	case pb.Transport_METRO:
+		return Duration_METRO
+	case pb.Transport_TAXI:
+		return Duration_TAXI
+	case pb.Transport_TRAM:
+		return Duration_TRAM
+	default:
+		return 0
+	}
+}
+
+// Reward returns mapping of userid to reward they shall get
+func (p Path) Reward() map[int32]int {
+	rewards := map[int32]float64{}
+
+	prev := p.Start
+
+	for _, point := range p.Hops {
+		xdiff := math.Abs(float64(prev.X) - float64(point.To.X))
+		ydiff := math.Abs(float64(prev.Y) - float64(point.To.Y))
+		distance := math.Sqrt(xdiff*xdiff + ydiff*ydiff)
+
+		oldReward, ok := rewards[point.UserId]
+		if !ok {
+			oldReward = 0
+		}
+
+		rewards[point.UserId] = oldReward + distance*float64(transportReward(point.Transport))
+
+		prev = point.To
+	}
+
+	rewardsInt := map[int32]int{}
+	for k, v := range rewards {
+		rewardsInt[k] = int(v)
+	}
+
+	return rewardsInt
+}
+
+// Duration returns amount of time needed to achieve the destination
+func (p Path) Duration() time.Duration {
+	var duration time.Duration
+	duration = 0
+
+	prev := p.Start
+
+	for _, point := range p.Hops {
+		xdiff := math.Abs(float64(prev.X) - float64(point.To.X))
+		ydiff := math.Abs(float64(prev.Y) - float64(point.To.Y))
+		distance := math.Sqrt(xdiff*xdiff + ydiff*ydiff)
+
+		duration += time.Duration(distance * float64(transportDuration(point.Transport)))
+
+		prev = point.To
+	}
+
+	return duration
+}
+
+func (tn *TransportNetwork) RandomPath(from Coords, fuel int) Path {
+	cur := from
+	prev := cur // Whatever, doesn't matter for first hop
+	hops := []*Destination{}
+
+	for fuel > 0 {
+		fuel--
+		possibleHops, ok := tn.blocks[cur]
+
+		// oh what a shame no way to go but back
+		if !ok || len(possibleHops) <= 1 {
+			// luckily theres always an escape :3
+			break
+		}
+
+		// in other cases sample random direction to go to
+		nextIdx := rand.Intn(len(possibleHops) - 1) // -1 cuz we aint gonna go back
+
+		// fun indexing stuff where we skip the shit that's back
+		// good thing we're in 2d dis loop is smol
+		i := 0
+
+		// in case the idx is zero and the loop ahead ain't gonna run
+		if nextIdx == 0 && possibleHops[0].To == prev {
+			i = 1
+		}
+
+		for nextIdx > 0 {
+			i++
+			// we ain't counting bitch that's going back
+			if possibleHops[i].To != prev {
+				nextIdx--
+			}
+		}
+
+		// Could we overflow cause the edge to prev is last? HELL NAH
+		// Cause nextIdx is sampled from [0, len - 1), we ain't ever
+		// gonna get such index c:
+
+		hop := possibleHops[i]
+		prev = cur
+		cur = hop.To
+		hops = append(hops, hop)
+	}
+
+	return Path{
+		Start: from,
+		Hops:  hops,
+	}
 }
