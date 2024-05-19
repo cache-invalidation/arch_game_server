@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type GameRunner struct {
@@ -21,12 +23,14 @@ type GameRunner struct {
 	network          TransportNetwork
 	networkMutex     sync.Mutex
 	rewardQueue      *RewardQueue
+	onps             []*pb.OutNetworkPassenger
 	lastSessionState *pb.Session
 	moneyMutex       *sync.Mutex
 }
 
 func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *pb.Session, moneyMutex *sync.Mutex) *GameRunner {
 	ctx, cxtCancel := context.WithCancel(context.Background())
+
 	rewatdQueue := &RewardQueue{}
 	heap.Init(rewatdQueue)
 
@@ -37,6 +41,7 @@ func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *
 		connections:      []pb.Api_StateStreamServer{},
 		network:          TransportNetwork{},
 		rewardQueue:      rewatdQueue,
+		onps:             []*pb.OutNetworkPassenger{},
 		lastSessionState: initSessionState,
 		moneyMutex:       moneyMutex,
 	}
@@ -77,7 +82,7 @@ func (gr *GameRunner) startGameComputation() {
 				gr.ctxCancel()
 			}
 
-			if session.StartTime.AsTime().Add(time.Duration(timeLimitMin) * time.Minute).After(time.Now()) {
+			if session.StartTime.AsTime().Add(time.Duration(timeLimitMin) * time.Minute).Before(time.Now()) {
 				break
 			}
 
@@ -156,7 +161,7 @@ func (gr *GameRunner) generateTravellers(n int) []Path {
 	if len(starts) > 0 {
 		for i := 0; i < n; i++ {
 			start := starts[rand.Intn(len(starts))]
-			path := gr.network.RandomPath(start, 20)
+			path := gr.network.RandomPath(start, passengerFuel)
 			if len(path.Hops) > 0 {
 				paths = append(paths, path)
 			}
@@ -166,8 +171,73 @@ func (gr *GameRunner) generateTravellers(n int) []Path {
 	return paths
 }
 
+// ONP means OutNetworkPassenger
+func (gr *GameRunner) generateONP(session *pb.Session) []*pb.OutNetworkPassenger {
+	nowTime := time.Now()
+	points := []*pb.Coordintates{}
+
+	for _, user := range session.Users {
+		for _, block := range user.License {
+			if _, ok := gr.network.blocks[Coords{X: block.X, Y: block.Y}]; !ok {
+				points = append(points, block)
+			}
+		}
+	}
+
+	newOnps := []*pb.OutNetworkPassenger{}
+
+	passengersNum := 3 + rand.Int31n(1)
+
+	for i := range rand.Perm(len(points))[:passengersNum] {
+		ttl := time.Duration(30+rand.Int31n(60)) * time.Second
+
+		onp := &pb.OutNetworkPassenger{
+			Position:   points[i],
+			TimeToBurn: timestamppb.New(nowTime.Add(ttl)),
+		}
+
+		newOnps = append(newOnps, onp)
+		gr.onps = append(gr.onps, onp)
+	}
+
+	return newOnps
+}
+
+func (gr *GameRunner) onpsBurnOrGetSendToRoad(session *pb.Session) []*pb.OutNetworkPassenger {
+	currentTime := time.Now()
+	sendToRoad := []*pb.OutNetworkPassenger{}
+
+	for i, onp := range gr.onps {
+		if _, ok := gr.network.blocks[Coords{X: onp.Position.X, Y: onp.Position.Y}]; ok {
+			sendToRoad = append(sendToRoad, onp)
+			gr.onps = append(gr.onps[:i], gr.onps[i+1:]...)
+			continue
+		}
+		if onp.TimeToBurn.AsTime().Before(currentTime) {
+			for _, user := range session.Users {
+				for _, block := range user.License {
+					if onp.Position.X == block.X && onp.Position.Y == block.Y {
+						money := user.Money - onpPenalty
+						if money < 0 {
+							money = 0
+						}
+
+						user.Money = money
+						break
+					}
+				}
+			}
+
+			gr.onps = append(gr.onps[:i], gr.onps[i+1:]...)
+		}
+	}
+
+	return sendToRoad
+}
+
 func (gr *GameRunner) computeState(session *pb.Session, to_spawn int) (*pb.State, error) {
 	gr.rewardsAccrual(session)
+	sendToRoadOnps := gr.onpsBurnOrGetSendToRoad(session)
 
 	changedBlocks := []*pb.Block{}
 	for i := range session.Map {
@@ -178,6 +248,11 @@ func (gr *GameRunner) computeState(session *pb.Session, to_spawn int) (*pb.State
 
 	now := time.Now()
 	paths := gr.generateTravellers(to_spawn)
+	for _, onp := range sendToRoadOnps {
+		paths = append(paths, gr.network.RandomPath(Coords{X: onp.Position.X, Y: onp.Position.Y}, passengerFuel))
+	}
+
+	newOnps := gr.generateONP(session)
 
 	// No we shall reward generously the completers of the path
 	for _, path := range paths {
@@ -217,7 +292,7 @@ func (gr *GameRunner) computeState(session *pb.Session, to_spawn int) (*pb.State
 		NewEvents:            []*pb.Event{},
 		ChangedBlocks:        changedBlocks,
 		Tracks:               tracks,
-		OutNetworkPassengers: []*pb.OutNetworkPassenger{},
+		OutNetworkPassengers: newOnps,
 	}
 
 	gr.lastSessionState = session
