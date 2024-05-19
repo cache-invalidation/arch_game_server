@@ -11,7 +11,7 @@ func generateMap() []*pb.Block {
 		for x := int32(0); x < sideLen; x++ {
 			block := &pb.Block{
 				Position:   &pb.Coordintates{X: x, Y: y},
-				Type:       pb.BlockType(rand.Int31n(int32(len(pb.BlockType_name)))),
+				Type:       pb.BlockType(rand.Int31n(int32(len(pb.BlockType_name) - 1))),
 				Capacity:   rand.Int31n(5) + 1,
 				Connectors: []*pb.Connector{},
 			}
