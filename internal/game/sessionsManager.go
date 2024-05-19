@@ -20,6 +20,7 @@ type SessionsManager struct {
 	gameRuners           map[int32]*GameRunner //key: sessionId
 	pendingSessionsMutex sync.Mutex
 	transportMutex       sync.Mutex
+	moneyMutex           *sync.Mutex
 }
 
 func NewSessionsManager(db *database.DbConnector) *SessionsManager {
@@ -27,6 +28,7 @@ func NewSessionsManager(db *database.DbConnector) *SessionsManager {
 		db:              db,
 		pendingSessions: []int32{},
 		gameRuners:      map[int32]*GameRunner{},
+		moneyMutex:      &sync.Mutex{},
 	}
 }
 
@@ -68,7 +70,7 @@ func (sm *SessionsManager) startSesison(session *pb.Session) {
 	session.Status = pb.SessionStatus_ACTIVE
 	session.StartTime = timestamppb.New(time.Now().Add(time.Minute))
 
-	gameRunner := NewGameRunner(session.Id, sm.db, session)
+	gameRunner := NewGameRunner(session.Id, sm.db, session, sm.moneyMutex)
 	gameRunner.startGameComputation()
 
 	sm.gameRuners[session.Id] = gameRunner
@@ -169,7 +171,9 @@ func (sm *SessionsManager) getPendingSession() (*pb.Session, error) {
 }
 
 func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to *pb.Coordintates, transport pb.Transport) error {
+	sm.moneyMutex.Lock()
 	sm.transportMutex.Lock()
+	defer sm.moneyMutex.Unlock()
 	defer sm.transportMutex.Unlock()
 
 	session, err := sm.db.GetAliveSessionByUser(userId)
@@ -191,10 +195,24 @@ func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to 
 		return err
 	}
 
+	for _, user := range session.Users {
+		if user.Id == userId {
+			money := user.Money - transportCost(transport)
+			if money < 0 {
+				return fmt.Errorf("user %d does not have enough money", userId)
+			}
+			user.Money = money
+			break
+		}
+	}
+
 	return sm.db.UpdateSession(session)
 }
 
 func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates) error {
+	sm.moneyMutex.Lock()
+	defer sm.moneyMutex.Unlock()
+
 	session, err := sm.db.GetAliveSessionByUser(userId)
 	if err != nil {
 		return err
@@ -202,7 +220,13 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 
 	for _, user := range session.Users {
 		if user.Id == userId {
+			money := user.Money - licenseCost*int32(len(blocks))
+			if money < 0 {
+				return fmt.Errorf("user %d does not have enough money", userId)
+			}
+
 			user.License = append(user.License, blocks...)
+			user.Money = money
 			break
 		}
 	}

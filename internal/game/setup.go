@@ -8,6 +8,7 @@ const (
 	licenseAreaSideLen int32 = 6
 	startMoney         int32 = 1000
 	timeLimitMin       int   = 10
+	licenseCost        int32 = 100
 )
 
 // Transport reward
@@ -24,4 +25,12 @@ const (
 	Duration_METRO time.Duration = time.Second
 	Duration_TAXI  time.Duration = time.Second
 	Duration_TRAM  time.Duration = time.Second
+)
+
+// Transport const
+const (
+	Cost_BUS   int32 = 300
+	Cost_METRO int32 = 3000
+	Cost_TAXI  int32 = 1000
+	Cost_TRAM  int32 = 1500
 )

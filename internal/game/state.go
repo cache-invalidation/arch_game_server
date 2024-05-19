@@ -22,9 +22,10 @@ type GameRunner struct {
 	networkMutex     sync.Mutex
 	rewardQueue      *RewardQueue
 	lastSessionState *pb.Session
+	moneyMutex       *sync.Mutex
 }
 
-func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *pb.Session) *GameRunner {
+func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *pb.Session, moneyMutex *sync.Mutex) *GameRunner {
 	ctx, cxtCancel := context.WithCancel(context.Background())
 	rewatdQueue := &RewardQueue{}
 	heap.Init(rewatdQueue)
@@ -37,6 +38,7 @@ func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *
 		network:          TransportNetwork{},
 		rewardQueue:      rewatdQueue,
 		lastSessionState: initSessionState,
+		moneyMutex:       moneyMutex,
 	}
 }
 
@@ -67,8 +69,8 @@ func (gr *GameRunner) startGameComputation() {
 		var session *pb.Session
 		var err error
 		for {
+			gr.moneyMutex.Lock()
 			k--
-			time.Sleep(200)
 			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
@@ -101,6 +103,8 @@ func (gr *GameRunner) startGameComputation() {
 				gr.ctxCancel()
 			}
 
+			gr.moneyMutex.Unlock()
+
 			for _, srv := range gr.connections {
 				if err := srv.Send(state); err != nil {
 					log.Printf("game loop for session %d, send state error: %v", gr.sessionId, err)
@@ -108,7 +112,7 @@ func (gr *GameRunner) startGameComputation() {
 				}
 			}
 
-			time.Sleep(200)
+			time.Sleep(300)
 		}
 
 		session.Status = pb.SessionStatus_FINISHED
