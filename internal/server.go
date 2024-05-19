@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"game_server/internal/game"
@@ -29,9 +30,12 @@ func NewServer(db *database.DbConnector) *Server {
 func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error) {
 	session, err := s.db.GetAliveSessionByUser(r.Id)
 	if err != nil {
-		// добавить проверку not found
-		session, err = s.sessionsManager.FindSessionForUser(r.Id)
-		if err != nil {
+		if errors.Is(err, database.ErrSessionNotFound) {
+			session, err = s.sessionsManager.FindSessionForUser(r.Id)
+			if err != nil {
+				return nil, InternalError(err)
+			}
+		} else {
 			return nil, InternalError(err)
 		}
 	}
@@ -56,12 +60,6 @@ func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*empt
 
 	return &emptypb.Empty{}, nil
 }
-
-// func (s *Server) EventStream(r *pb.UserId, srv pb.Api_EventStreamServer) error {
-// 	log.Printf("start event stream for user: %d\n", r.Id)
-
-// 	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
-// }
 
 func (s *Server) StateStream(r *pb.StateStreamReq, srv pb.Api_StateStreamServer) error {
 	log.Printf("start session %d state stream for user: %d\n", r.SessionId.Id, r.UserId.Id)
