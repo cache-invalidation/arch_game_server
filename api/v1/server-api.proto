@@ -87,7 +87,7 @@ message State {
     repeated Block changedBlocks = 2;
     repeated Event newEvents = 3;
     repeated Path tracks = 4;
-    repeated OutNetworkPassenger outNetworPassengers = 5;
+    repeated OutNetworkPassenger outNetworkPassengers = 5;
 }
 
 message NewTransportReq {
