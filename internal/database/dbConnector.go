@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	pb "game_server/api/v1"
+	"time"
 
 	"github.com/spf13/cast"
 
@@ -30,7 +31,11 @@ func NewDbConnector(host, user, pass string) (*DbConnector, error) {
 		Password: pass,
 	}
 
-	conn, err := tarantool.Connect(ctx, dialer, tarantool.Opts{})
+	opts := tarantool.Opts{
+		Reconnect: time.Second,
+	}
+
+	conn, err := tarantool.Connect(ctx, dialer, opts)
 	if err != nil {
 		return nil, err
 	}
