@@ -5,15 +5,18 @@ import (
 	pb "game_server/api/v1"
 	"game_server/internal/database"
 	"log"
+	"sync"
 	"time"
 )
 
 type GameRunner struct {
-	sessionId   int32
-	db          *database.DbConnector
-	ctx         context.Context
-	ctxCancel   context.CancelFunc
-	connections []pb.Api_StateStreamServer
+	sessionId    int32
+	db           *database.DbConnector
+	ctx          context.Context
+	ctxCancel    context.CancelFunc
+	connections  []pb.Api_StateStreamServer
+	network      TransportNetwork
+	networkMutex sync.Mutex
 }
 
 func NewGameRunner(sessionId int32, db *database.DbConnector) *GameRunner {
@@ -24,6 +27,7 @@ func NewGameRunner(sessionId int32, db *database.DbConnector) *GameRunner {
 		db:          db,
 		ctxCancel:   cxtCancel,
 		connections: []pb.Api_StateStreamServer{},
+		network:     TransportNetwork{},
 	}
 }
 
@@ -75,6 +79,22 @@ func (gr *GameRunner) startGameComputation() {
 
 		gr.ctxCancel()
 	}()
+}
+
+func (gr *GameRunner) extendNetwork(userId int32, p1 *pb.Coordintates, p2 *pb.Coordintates, transport pb.Transport) error {
+	gr.networkMutex.Lock()
+	defer gr.networkMutex.Unlock()
+
+	coords1 := Coords{
+		X: p1.X,
+		Y: p1.Y,
+	}
+	coords2 := Coords{
+		X: p2.X,
+		Y: p2.Y,
+	}
+
+	return gr.network.ConnectBlocks(userId, coords1, coords2, transport)
 }
 
 func computeState(session *pb.Session) (*pb.State, error) {

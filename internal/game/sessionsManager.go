@@ -17,7 +17,7 @@ import (
 type SessionsManager struct {
 	db                   *database.DbConnector
 	pendingSessions      []int32
-	gameRuners           map[int32]*GameRunner
+	gameRuners           map[int32]*GameRunner //key: sessionId
 	pendingSessionsMutex sync.Mutex
 	transportMutex       sync.Mutex
 }
@@ -186,6 +186,10 @@ func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to 
 
 	fromBlock.Connectors = append(fromBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: to})
 	toBlock.Connectors = append(toBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: from})
+
+	if err := sm.gameRuners[session.Id].extendNetwork(userId, from, to, transport); err != nil {
+		return err
+	}
 
 	return sm.db.UpdateSession(session)
 }
