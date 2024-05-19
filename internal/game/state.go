@@ -37,6 +37,7 @@ func (gr *GameRunner) startGameComputation() {
 		var session *pb.Session
 		var err error
 		for {
+			time.Sleep(200)
 			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
@@ -76,6 +77,12 @@ func (gr *GameRunner) startGameComputation() {
 	}()
 }
 
-func computeState(*pb.Session) (*pb.State, error) {
-	return &pb.State{}, nil
+func computeState(session *pb.Session) (*pb.State, error) {
+	state := &pb.State{
+		Users:         session.Users,
+		NewEvents:     []*pb.Event{},
+		ChangedBlocks: []*pb.Block{},
+	}
+
+	return state, nil
 }
