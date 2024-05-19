@@ -66,36 +66,6 @@ type Path struct {
 	Hops  []*Destination
 }
 
-func transportReward(t pb.Transport) int {
-	switch t {
-	case pb.Transport_BUS:
-		return Reward_BUS
-	case pb.Transport_METRO:
-		return Reward_METRO
-	case pb.Transport_TAXI:
-		return Reward_TAXI
-	case pb.Transport_TRAM:
-		return Reward_TRAM
-	default:
-		return 0
-	}
-}
-
-func transportDuration(t pb.Transport) time.Duration {
-	switch t {
-	case pb.Transport_BUS:
-		return Duration_BUS
-	case pb.Transport_METRO:
-		return Duration_METRO
-	case pb.Transport_TAXI:
-		return Duration_TAXI
-	case pb.Transport_TRAM:
-		return Duration_TRAM
-	default:
-		return 0
-	}
-}
-
 // Reward returns mapping of userid to reward they shall get
 func (p Path) Reward() map[int32]int {
 	rewards := map[int32]float64{}
