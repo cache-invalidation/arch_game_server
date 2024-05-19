@@ -68,7 +68,7 @@ func (sm *SessionsManager) startSesison(session *pb.Session) {
 	session.Status = pb.SessionStatus_ACTIVE
 	session.StartTime = timestamppb.New(time.Now().Add(time.Minute))
 
-	gameRunner := NewGameRunner(session.Id, sm.db)
+	gameRunner := NewGameRunner(session.Id, sm.db, session)
 	gameRunner.startGameComputation()
 
 	sm.gameRuners[session.Id] = gameRunner
