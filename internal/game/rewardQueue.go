@@ -7,8 +7,9 @@ import (
 
 type Reward struct {
 	money          int32
-	activationTime time.Duration
+	activationTime time.Time
 	index          int
+	userId         int32
 }
 
 type RewardQueue []*Reward
@@ -16,7 +17,7 @@ type RewardQueue []*Reward
 func (pq RewardQueue) Len() int { return len(pq) }
 
 func (pq RewardQueue) Less(i, j int) bool {
-	return pq[i].activationTime < pq[j].activationTime
+	return pq[i].activationTime.Before(pq[j].activationTime)
 }
 
 func (pq RewardQueue) Swap(i, j int) {
@@ -42,9 +43,13 @@ func (pq *RewardQueue) Pop() any {
 	return item
 }
 
+func (pq *RewardQueue) Top() *Reward {
+	return (*pq)[len(*pq)-1]
+}
+
 // update modifies the priority and value of an Item in the queue.
-func (pq *RewardQueue) update(item *Reward, money int32, priority time.Duration) {
+func (pq *RewardQueue) update(item *Reward, money int32, activationTime time.Time) {
 	item.money = money
-	item.activationTime = priority
+	item.activationTime = activationTime
 	heap.Fix(pq, item.index)
 }

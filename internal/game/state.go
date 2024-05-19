@@ -107,6 +107,8 @@ func (gr *GameRunner) extendNetwork(userId int32, p1 *pb.Coordintates, p2 *pb.Co
 }
 
 func (gr *GameRunner) computeState(session *pb.Session) (*pb.State, error) {
+	gr.rewardsAccrual(session)
+
 	changedBlocks := []*pb.Block{}
 	for i := range session.Map {
 		if !reflect.DeepEqual(session.Map[i], gr.lastSessionState.Map[i]) {
@@ -124,4 +126,19 @@ func (gr *GameRunner) computeState(session *pb.Session) (*pb.State, error) {
 	gr.lastSessionState = session
 
 	return state, nil
+}
+
+func (gr *GameRunner) rewardsAccrual(session *pb.Session) {
+	currentTime := time.Now()
+
+	for gr.rewardQueue.Len() > 0 && gr.rewardQueue.Top().activationTime.After(currentTime) {
+		reward := heap.Pop(gr.rewardQueue).(*Reward)
+
+		for _, user := range session.Users {
+			if user.Id == reward.userId {
+				user.Money += reward.money
+				break
+			}
+		}
+	}
 }
