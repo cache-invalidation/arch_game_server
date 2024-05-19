@@ -79,7 +79,7 @@ message Path {
 
 message OutNetworkPassenger {
     Coordintates position = 1;
-    google.protobuf.Duration ttl = 2;
+    google.protobuf.Timestamp timeToBurn = 2;
 }
 
 message State {

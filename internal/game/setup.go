@@ -9,6 +9,8 @@ const (
 	startMoney         int32 = 1000
 	timeLimitMin       int   = 10
 	licenseCost        int32 = 100
+	passengerFuel      int   = 5
+	onpPenalty         int32 = 500
 )
 
 // Transport reward
