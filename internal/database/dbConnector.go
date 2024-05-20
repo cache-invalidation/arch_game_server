@@ -80,10 +80,7 @@ func (db *DbConnector) Close() error {
 }
 
 func (db *DbConnector) AddSession(session *pb.Session) error {
-	req := tarantool.NewInsertRequest("sessions").Tuple(sessionToTntTuple(session))
-	_, err := db.conn.Do(req).Get()
-
-	return err
+	return db.UpdateSession(session)
 }
 
 func (db *DbConnector) UpdateSession(session *pb.Session) error {
