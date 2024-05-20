@@ -43,11 +43,15 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 		user := createUser(userId, 0)
 		session.Users = append(session.Users, user)
 
+		if maxPlayers == 1 {
+			sm.startSesison(session)
+		} else {
+			sm.addPendingSession(session.Id)
+		}
+
 		if err := sm.db.AddSession(session); err != nil {
 			return nil, err
 		}
-
-		sm.addPendingSession(session.Id)
 
 		return session, nil
 	}
@@ -68,7 +72,7 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 
 func (sm *SessionsManager) startSesison(session *pb.Session) {
 	session.Status = pb.SessionStatus_ACTIVE
-	session.StartTime = timestamppb.New(time.Now().Add(time.Minute))
+	session.StartTime = timestamppb.New(time.Now().Add(time.Second * 30))
 
 	gameRunner := NewGameRunner(session.Id, sm.db, session, sm.moneyMutex)
 	gameRunner.startGameComputation()
@@ -81,7 +85,7 @@ func createSession() *pb.Session {
 		Id:        rand.Int31(),
 		Users:     []*pb.User{},
 		Map:       generateMap(),
-		TimeLimit: durationpb.New(time.Duration(timeLimitMin) * time.Minute),
+		TimeLimit: durationpb.New(time.Duration(TimeLimitMin) * time.Minute),
 		Status:    pb.SessionStatus_WAITING,
 	}
 	return session
@@ -191,7 +195,12 @@ func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to 
 	fromBlock.Connectors = append(fromBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: to})
 	toBlock.Connectors = append(toBlock.Connectors, &pb.Connector{UserId: userId, Transport: transport, Destination: from})
 
-	if err := sm.gameRuners[session.Id].extendNetwork(userId, from, to, transport); err != nil {
+	gameRunner, ok := sm.gameRuners[session.Id]
+	if !ok {
+		return fmt.Errorf("no game runner for session %d with user: %d", session.Id, userId)
+	}
+
+	if err := gameRunner.extendNetwork(userId, from, to, transport); err != nil {
 		return err
 	}
 
@@ -220,7 +229,7 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 
 	for _, user := range session.Users {
 		if user.Id == userId {
-			money := user.Money - licenseCost*int32(len(blocks))
+			money := user.Money - LicenseCost*int32(len(blocks))
 			if money < 0 {
 				return fmt.Errorf("user %d does not have enough money", userId)
 			}
@@ -235,7 +244,12 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 }
 
 func (sm *SessionsManager) StreamState(sessionId, userId int32, srv pb.Api_StateStreamServer) error {
-	ctx := sm.gameRuners[sessionId].addConnection(srv)
+	gameRunner, ok := sm.gameRuners[sessionId]
+	if !ok {
+		return fmt.Errorf("no game runner for session %d with user: %d", sessionId, userId)
+	}
+
+	ctx := gameRunner.addConnection(srv)
 	<-ctx.Done()
 
 	return nil
