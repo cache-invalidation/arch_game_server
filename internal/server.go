@@ -60,6 +60,7 @@ func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error
 			return nil, InternalError(err)
 		}
 	}
+	log.Printf("found exists session %d for user %d\n", session.Id, r.Id)
 
 	return session, nil
 }

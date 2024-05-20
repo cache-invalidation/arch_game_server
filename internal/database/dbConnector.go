@@ -80,14 +80,21 @@ func (db *DbConnector) Close() error {
 }
 
 func (db *DbConnector) AddSession(session *pb.Session) error {
-	return db.UpdateSession(session)
+	if err := db.UpdateSession(session); err != nil {
+		return fmt.Errorf("add session db error: %v", err)
+	}
+	return nil
 }
 
 func (db *DbConnector) UpdateSession(session *pb.Session) error {
 	req := tarantool.NewReplaceRequest("sessions").Tuple(sessionToTntTuple(session))
 	_, err := db.conn.Do(req).Get()
 
-	return err
+	if err != nil {
+		return fmt.Errorf("update session db error: %v", err)
+	}
+
+	return nil
 }
 
 func (db *DbConnector) GetSession(id int32) (*pb.Session, error) {
