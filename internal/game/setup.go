@@ -3,14 +3,14 @@ package game
 import "time"
 
 const (
-	maxPlayers         int   = 4
-	sideLen            int32 = 30
-	licenseAreaSideLen int32 = 6
+	maxPlayers         int   = 1
+	sideLen            int32 = 12
+	licenseAreaSideLen int32 = 2
 	startMoney         int32 = 1000
-	timeLimitMin       int   = 10
-	licenseCost        int32 = 100
+	TimeLimitMin       int   = 10
+	LicenseCost        int32 = 100
 	passengerFuel      int   = 5
-	onpPenalty         int32 = 500
+	OnpPenalty         int32 = 500
 )
 
 // Transport reward

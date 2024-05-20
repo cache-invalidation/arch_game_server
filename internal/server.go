@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -27,7 +28,27 @@ func NewServer(db *database.DbConnector) *Server {
 	}
 }
 
+func (s *Server) GetSetup(context.Context, *emptypb.Empty) (*pb.Setup, error) {
+	return &pb.Setup{
+		TimeLimitMin: int32(game.TimeLimitMin),
+		LicenseCost:  game.LicenseCost,
+		OnpPenalty:   game.OnpPenalty,
+
+		CostBus:   game.Cost_BUS,
+		CostMetro: game.Cost_METRO,
+		CostTaxi:  game.Cost_TAXI,
+		CostTram:  game.Cost_TRAM,
+
+		DurationBus:   durationpb.New(game.Duration_BUS),
+		DurationMetro: durationpb.New(game.Duration_METRO),
+		DurationTaxi:  durationpb.New(game.Duration_TAXI),
+		DurationTram:  durationpb.New(game.Duration_TRAM),
+	}, nil
+}
+
 func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error) {
+	log.Printf("get session req, user: %d\n", r.Id)
+
 	session, err := s.db.GetAliveSessionByUser(r.Id)
 	if err != nil {
 		if errors.Is(err, database.ErrSessionNotFound) {
@@ -44,6 +65,8 @@ func (s *Server) GetSession(_ context.Context, r *pb.UserId) (*pb.Session, error
 }
 
 func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptypb.Empty, error) {
+	log.Printf("new transport req, user: %d, transport: %s, from: %s, to: %s\n", r.UserId, r.Transport.String(), r.From.String(), r.To.String())
+
 	err := s.sessionsManager.AddTransport(r.UserId, r.From, r.To, r.Transport)
 	if err != nil {
 		return nil, InternalError(err)
@@ -53,6 +76,11 @@ func (s *Server) NewTransport(_ context.Context, r *pb.NewTransportReq) (*emptyp
 }
 
 func (s *Server) ExtendLicense(_ context.Context, r *pb.ExtendLicenseReq) (*emptypb.Empty, error) {
+	log.Printf("extend license req, user: %d, license:\n", r.UserId)
+	for _, block := range r.Blocks {
+		log.Printf("%s\n", block.String())
+	}
+
 	err := s.sessionsManager.ExtendLicense(r.UserId, r.Blocks)
 	if err != nil {
 		return nil, InternalError(err)

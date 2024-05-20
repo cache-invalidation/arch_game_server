@@ -82,13 +82,13 @@ func (gr *GameRunner) startGameComputation() {
 				gr.ctxCancel()
 			}
 
-			if session.StartTime.AsTime().Add(time.Duration(timeLimitMin) * time.Minute).Before(time.Now()) {
+			if session.StartTime.AsTime().Add(time.Duration(TimeLimitMin) * time.Minute).Before(time.Now()) {
 				break
 			}
 
 			to_spawn := 0
 			if k == 0 {
-				alpha := time.Now().Sub(session.StartTime.AsTime()).Minutes() / float64(timeLimitMin)
+				alpha := time.Now().Sub(session.StartTime.AsTime()).Minutes() / float64(TimeLimitMin)
 
 				// set the counter to new value
 				k = kF(alpha)
@@ -217,7 +217,7 @@ func (gr *GameRunner) onpsBurnOrGetSendToRoad(session *pb.Session) []*pb.OutNetw
 			for _, user := range session.Users {
 				for _, block := range user.License {
 					if onp.Position.X == block.X && onp.Position.Y == block.Y {
-						money := user.Money - onpPenalty
+						money := user.Money - OnpPenalty
 						if money < 0 {
 							money = 0
 						}

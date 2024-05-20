@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Api_GetSession_FullMethodName    = "/Api/GetSession"
+	Api_GetSetup_FullMethodName      = "/Api/GetSetup"
 	Api_NewTransport_FullMethodName  = "/Api/NewTransport"
 	Api_ExtendLicense_FullMethodName = "/Api/ExtendLicense"
 	Api_StateStream_FullMethodName   = "/Api/StateStream"
@@ -31,6 +32,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ApiClient interface {
 	GetSession(ctx context.Context, in *UserId, opts ...grpc.CallOption) (*Session, error)
+	GetSetup(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Setup, error)
 	NewTransport(ctx context.Context, in *NewTransportReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ExtendLicense(ctx context.Context, in *ExtendLicenseReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// rpc EventStream(UserId) returns (stream Event);
@@ -48,6 +50,15 @@ func NewApiClient(cc grpc.ClientConnInterface) ApiClient {
 func (c *apiClient) GetSession(ctx context.Context, in *UserId, opts ...grpc.CallOption) (*Session, error) {
 	out := new(Session)
 	err := c.cc.Invoke(ctx, Api_GetSession_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetSetup(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Setup, error) {
+	out := new(Setup)
+	err := c.cc.Invoke(ctx, Api_GetSetup_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +120,7 @@ func (x *apiStateStreamClient) Recv() (*State, error) {
 // for forward compatibility
 type ApiServer interface {
 	GetSession(context.Context, *UserId) (*Session, error)
+	GetSetup(context.Context, *emptypb.Empty) (*Setup, error)
 	NewTransport(context.Context, *NewTransportReq) (*emptypb.Empty, error)
 	ExtendLicense(context.Context, *ExtendLicenseReq) (*emptypb.Empty, error)
 	// rpc EventStream(UserId) returns (stream Event);
@@ -122,6 +134,9 @@ type UnimplementedApiServer struct {
 
 func (UnimplementedApiServer) GetSession(context.Context, *UserId) (*Session, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSession not implemented")
+}
+func (UnimplementedApiServer) GetSetup(context.Context, *emptypb.Empty) (*Setup, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSetup not implemented")
 }
 func (UnimplementedApiServer) NewTransport(context.Context, *NewTransportReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewTransport not implemented")
@@ -159,6 +174,24 @@ func _Api_GetSession_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ApiServer).GetSession(ctx, req.(*UserId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Api_GetSetup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).GetSetup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Api_GetSetup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).GetSetup(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -230,6 +263,10 @@ var Api_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSession",
 			Handler:    _Api_GetSession_Handler,
+		},
+		{
+			MethodName: "GetSetup",
+			Handler:    _Api_GetSetup_Handler,
 		},
 		{
 			MethodName: "NewTransport",

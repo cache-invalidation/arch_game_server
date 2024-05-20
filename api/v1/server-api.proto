@@ -107,9 +107,27 @@ message StateStreamReq {
     UserId userId = 2;
 }
 
+message Setup {
+    int32 timeLimitMin = 1;
+    int32 licenseCost = 2;
+    int32 onpPenalty = 3;
+    
+    int32 CostBus = 4;
+    int32 CostMetro = 5;
+    int32 CostTaxi = 6;
+    int32 CostTram = 7;
+
+    // Transport travel duration (per unit of distance)
+    google.protobuf.Duration DurationBus = 8;
+    google.protobuf.Duration DurationMetro = 9;
+    google.protobuf.Duration DurationTaxi = 10;
+    google.protobuf.Duration DurationTram = 11;
+
+}
+
 service Api {
     rpc GetSession(UserId) returns (Session);
-    // rpc GetSessionTime(SessionId) returns (google.protobuf.Duration); // could be negative before the start of the session
+    rpc GetSetup(google.protobuf.Empty) returns (Setup);
 
     rpc NewTransport(NewTransportReq) returns (google.protobuf.Empty);
     rpc ExtendLicense(ExtendLicenseReq) returns (google.protobuf.Empty);
