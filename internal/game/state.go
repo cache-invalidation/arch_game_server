@@ -35,6 +35,7 @@ func NewGameRunner(sessionId int32, db *database.DbConnector, initSessionState *
 	heap.Init(rewatdQueue)
 
 	return &GameRunner{
+		sessionId:        sessionId,
 		ctx:              ctx,
 		db:               db,
 		ctxCancel:        cxtCancel,
@@ -80,9 +81,12 @@ func (gr *GameRunner) startGameComputation() {
 			if err != nil {
 				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
 				gr.ctxCancel()
+				gr.moneyMutex.Unlock()
+				break
 			}
 
 			if session.StartTime.AsTime().Add(time.Duration(TimeLimitMin) * time.Minute).Before(time.Now()) {
+				gr.moneyMutex.Unlock()
 				break
 			}
 
@@ -101,11 +105,15 @@ func (gr *GameRunner) startGameComputation() {
 				log.Printf("game loop for session %d, compute state error: %v", gr.sessionId, err)
 				session.Status = pb.SessionStatus_FINISHED
 				gr.ctxCancel()
+				gr.moneyMutex.Unlock()
+				break
 			}
 
 			if err := gr.db.UpdateSession(session); err != nil {
 				log.Printf("game loop for session %d, update session in db error: %v", gr.sessionId, err)
 				gr.ctxCancel()
+				gr.moneyMutex.Unlock()
+				break
 			}
 
 			gr.moneyMutex.Unlock()
