@@ -63,7 +63,7 @@ func kF(alpha float64) int {
 func nF(alpha float64) int {
 	// Idea: at most 1 at the beginning, at most 25 at the end
 	// Linearly adjust n
-	return 1 + rand.Intn(int(alpha*25))
+	return 1 + rand.Intn(1+int(alpha*25))
 }
 
 func (gr *GameRunner) startGameComputation() {

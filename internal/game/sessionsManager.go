@@ -49,9 +49,11 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 			}
 
 			sm.startSesison(session)
-		} else {
-			sm.addPendingSession(session.Id)
+
+			return session, sm.db.UpdateSession(session)
 		}
+
+		sm.addPendingSession(session.Id)
 
 		if err := sm.db.AddSession(session); err != nil {
 			return nil, err
@@ -188,6 +190,7 @@ func (sm *SessionsManager) AddTransport(userId int32, from *pb.Coordintates, to 
 	if err != nil {
 		return err
 	}
+	log.Printf("found session %d for user %d\n", session.Id, userId)
 
 	fromBlock := session.Map[from.Y*sideLen+from.X]
 	toBlock := session.Map[to.Y*sideLen+to.X]
@@ -230,6 +233,7 @@ func (sm *SessionsManager) ExtendLicense(userId int32, blocks []*pb.Coordintates
 	if err != nil {
 		return err
 	}
+	log.Printf("found session %d for user %d\n", session.Id, userId)
 
 	for _, user := range session.Users {
 		if user.Id == userId {
