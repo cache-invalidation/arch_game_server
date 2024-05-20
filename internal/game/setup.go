@@ -10,15 +10,15 @@ const (
 	TimeLimitMin       int   = 10
 	LicenseCost        int32 = 100
 	passengerFuel      int   = 5
-	OnpPenalty         int32 = 500
+	OnpPenalty         int32 = 0
 )
 
 // Transport reward
 const (
-	Reward_BUS   int = 5
-	Reward_METRO int = 10
+	Reward_BUS   int = 50
+	Reward_METRO int = 100
 	Reward_TAXI  int = 0
-	Reward_TRAM  int = 7
+	Reward_TRAM  int = 70
 )
 
 // Transport travel duration (per unit of distance)

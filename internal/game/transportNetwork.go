@@ -23,8 +23,8 @@ type TransportNetwork struct {
 	blocks map[Coords][]*Destination
 }
 
-func NewTransportNetwork() *TransportNetwork {
-	return &TransportNetwork{
+func NewTransportNetwork() TransportNetwork {
+	return TransportNetwork{
 		blocks: map[Coords][]*Destination{},
 	}
 }
@@ -43,6 +43,13 @@ func (tn *TransportNetwork) ConnectBlocks(userId int32, p1 Coords, p2 Coords, tr
 		To:        p1,
 		Transport: transport,
 		UserId:    userId,
+	}
+
+	if tn.blocks[p1] == nil {
+		tn.blocks[p1] = []*Destination{}
+	}
+	if tn.blocks[p2] == nil {
+		tn.blocks[p2] = []*Destination{}
 	}
 
 	tn.blocks[p1] = append(tn.blocks[p1], path1to2)
@@ -116,9 +123,21 @@ func (p Path) Duration() time.Duration {
 }
 
 func (tn *TransportNetwork) RandomPath(from Coords, fuel int) Path {
-	cur := from
-	prev := cur // Whatever, doesn't matter for first hop
 	hops := []*Destination{}
+
+	// First hop could go literally anywhere
+	possibleHops, ok := tn.blocks[from]
+	if !ok || len(possibleHops) == 0 {
+		return Path{
+			Start: from,
+			Hops:  hops,
+		}
+	}
+	hop := possibleHops[rand.Intn(len(possibleHops))]
+	hops = append(hops, hop)
+
+	prev := from
+	cur := hop.To
 
 	for fuel > 0 {
 		fuel--

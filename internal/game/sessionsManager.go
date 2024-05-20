@@ -48,9 +48,17 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 				return nil, err
 			}
 
-			sm.startSesison(session)
+			time.Sleep(time.Millisecond * 300)
 
-			return session, sm.db.UpdateSession(session)
+			sm.setupStartSesison(session)
+
+			if err := sm.db.UpdateSession(session); err != nil {
+				return nil, err
+			}
+
+			sm.gameRuners[session.Id].startGameComputation()
+
+			return session, nil
 		}
 
 		sm.addPendingSession(session.Id)
@@ -66,22 +74,25 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 	pendingSession.Users = append(pendingSession.Users, user)
 
 	if len(pendingSession.Users) == maxPlayers {
-		sm.startSesison(pendingSession)
+		sm.setupStartSesison(pendingSession)
 	}
 
 	if err := sm.db.UpdateSession(pendingSession); err != nil {
 		return nil, err
 	}
 
+	sm.gameRuners[pendingSession.Id].startGameComputation()
+
 	return pendingSession, nil
 }
 
-func (sm *SessionsManager) startSesison(session *pb.Session) {
+func (sm *SessionsManager) setupStartSesison(session *pb.Session) {
 	session.Status = pb.SessionStatus_ACTIVE
-	session.StartTime = timestamppb.New(time.Now().Add(time.Second * 30))
+	session.StartTime = timestamppb.New(time.Now().Add(time.Second * 5))
+	log.Printf("sesion: %d, start time set to %s", session.Id, session.StartTime.AsTime().String())
 
 	gameRunner := NewGameRunner(session.Id, sm.db, session, sm.moneyMutex)
-	gameRunner.startGameComputation()
+	// gameRunner.startGameComputation()
 
 	sm.gameRuners[session.Id] = gameRunner
 }
