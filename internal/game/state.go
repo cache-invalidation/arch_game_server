@@ -85,13 +85,14 @@ func (gr *GameRunner) startGameComputation() {
 			k--
 			session, err = gr.db.GetSession(gr.sessionId)
 			if err != nil {
-				log.Printf("game loop for session %d, get session from db error: %v", gr.sessionId, err)
+				log.Printf("game loop for session %d, get session from db error: %v\n", gr.sessionId, err)
 				gr.ctxCancel()
 				gr.moneyMutex.Unlock()
 				break
 			}
 
 			if session.StartTime.AsTime().Add(time.Duration(TimeLimitMin) * time.Minute).Before(time.Now()) {
+				log.Printf("time is up, finishing session\n")
 				gr.moneyMutex.Unlock()
 				break
 			}
@@ -126,15 +127,17 @@ func (gr *GameRunner) startGameComputation() {
 
 			for _, srv := range gr.connections {
 				if err := srv.Send(state); err != nil {
+
 					log.Printf("game loop for session %d, send state error: %v", gr.sessionId, err)
 					// gr.ctxCancel()
 				}
 			}
 
-			time.Sleep(300)
+			time.Sleep(time.Second)
 		}
 
 		session.Status = pb.SessionStatus_FINISHED
+		log.Printf("session finished\n")
 		if err := gr.db.UpdateSession(session); err != nil {
 			log.Printf("game end for session %d, update session in db error: %v", gr.sessionId, err)
 		}
@@ -266,7 +269,10 @@ func (gr *GameRunner) computeState(session *pb.Session, to_spawn int) (*pb.State
 		paths = append(paths, gr.network.RandomPath(Coords{X: onp.Position.X, Y: onp.Position.Y}, passengerFuel))
 	}
 
-	newOnps := gr.generateONP(session)
+	newOnps := []*pb.OutNetworkPassenger{}
+	if to_spawn > 0 && session.StartTime.AsTime().Before(now) {
+		newOnps = gr.generateONP(session)
+	}
 
 	// No we shall reward generously the completers of the path
 	for _, path := range paths {
