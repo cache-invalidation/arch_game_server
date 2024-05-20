@@ -55,12 +55,18 @@ func (gr *GameRunner) addConnection(srv pb.Api_StateStreamServer) context.Contex
 
 // kF computes value for k (+ jitter) based on game progression
 func kF(alpha float64) int {
+	if alpha < 0 {
+		return 0 // retry next time hon
+	}
 	// Idea: approx every 20 ticks in the beginning, every 5 ticks at the end
 	return 16 - int(alpha*15) + rand.Intn(4)
 }
 
 // nF computes value for n (+ jitter) based on game progression
 func nF(alpha float64) int {
+	if alpha < 0 {
+		return 0 // woah it aint time yet
+	}
 	// Idea: at most 1 at the beginning, at most 25 at the end
 	// Linearly adjust n
 	return 1 + rand.Intn(1+int(alpha*25))
