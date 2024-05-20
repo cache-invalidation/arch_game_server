@@ -44,6 +44,10 @@ func (sm *SessionsManager) FindSessionForUser(userId int32) (*pb.Session, error)
 		session.Users = append(session.Users, user)
 
 		if maxPlayers == 1 {
+			if err := sm.db.AddSession(session); err != nil {
+				return nil, err
+			}
+
 			sm.startSesison(session)
 		} else {
 			sm.addPendingSession(session.Id)
